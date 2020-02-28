@@ -1,0 +1,74 @@
+\documentclass[a4paper, 12pt]{article}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{dsfont}
+\usepackage[left=2cm, right=2cm, bottom=3cm, top=2cm]{geometry}
+\usepackage{graphicx}
+\usepackage[utf8]{inputenc}
+\usepackage{microtype}
+\usepackage{natbib}
+
+\title{Whaling}
+\author{Brendon J. Brewer}
+\date{}
+
+\begin{document}
+\maketitle
+
+%\abstract{\noindent Abstract}
+
+% Need this after the abstract
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{8pt}
+
+\section{AR setup}
+Let $x$ be an old total amount and $x'$ be the new one. The updated trending
+score $y'$ is then
+\begin{align}
+y' &= ky + f(x, x', y)
+\end{align}
+where $y$ is the old trending score, $k$ is the decay coefficient, and
+$f(x, x', y)$ is the spike height function.
+
+Suppose a whale has $L$ LBC and shifts it onto a claim with initial amount
+close to zero and initial trending score close to zero.
+The trending score will jump to
+\begin{align}
+y' &= k \times 0 + f(L, 0, 0)
+\end{align}
+Under the current {\tt ar.py}, this is (ignoring the minnow boost)
+\begin{align}
+y' \approx L^{1/4}.
+\end{align}
+
+If this happens at time $t=0$ (in units of blocks), it will decay according to
+\begin{align}
+y(t) &= L^{1/4} k^t. \label{eqn:decay}
+\end{align}
+The half life of the decay is $\ell = -1/\log_2(k)$. If we assume that a whale
+does this every $\ell$ blocks, and that the probability distribution
+over when he started to do it is uniform, then we can obtain the
+stationary distribution over trending score:
+Equation~\ref{eqn:decay} will be its inverse CDF.
+\begin{align}
+F^{-1}(u) = L^{1/4} k^{\ell u}.
+\end{align}
+Inverting this gives the CDF
+\begin{align}
+F(y) &= \frac{\ln y - \frac{1}{4}\ln L}{\ell \ln k}.
+\end{align}
+
+Differentiating gives the PDF:
+\begin{align}
+f(y) &= \frac{1}{\ell \ln k} \frac{1}{y},
+\end{align}
+Where $y \geq L/2$.
+
+
+
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}
+
