@@ -288,7 +288,7 @@ def run(db, height, final_height, recalculate_claim_hashes):
                                      reposted
                               FROM claim;
                               """):
-            trending_data.insert_claim_from_load(row[0], row[1], 1E-8*row[2])
+            trending_data.insert_claim_from_load(row[0], row[1], row[2])
         trending_data.initialised = True
     else:
         for row in db.execute(f"""
@@ -298,7 +298,7 @@ def run(db, height, final_height, recalculate_claim_hashes):
                               WHERE claim_hash IN
                             ({','.join('?' for _ in recalculate_claim_hashes)});
                               """, recalculate_claim_hashes):
-            trending_data.update_claim(height, row[0], 1E-8*row[1])
+            trending_data.update_claim(height, row[0], row[1])
 
         # Apply pending spikes
         trending_data.apply_spikes(height)
