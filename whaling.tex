@@ -7,6 +7,7 @@
 \usepackage[utf8]{inputenc}
 \usepackage{microtype}
 \usepackage{natbib}
+\newcommand{\given}{\,|\,}
 
 \title{Whaling}
 \author{Brendon J. Brewer}
@@ -45,24 +46,52 @@ If this happens at time $t=0$ (in units of blocks), it will decay according to
 \begin{align}
 y(t) &= L^{1/4} k^t. \label{eqn:decay}
 \end{align}
-The half life of the decay is $\ell = -1/\log_2(k)$. If we assume that a whale
-does this every $\ell$ blocks, and that the probability distribution
-over when he started to do it is uniform, then we can obtain the
-stationary distribution over trending score:
-Equation~\ref{eqn:decay} will be its inverse CDF.
+The half life of the decay is $\ell = -1/\log_2(k)$.
+
+If we assume that a whale
+does this every $m$ blocks, the stationary distribution over trending score
+will have this inverse CDF:
 \begin{align}
-F^{-1}(u) = L^{1/4} k^{\ell u}.
-\end{align}
-Inverting this gives the CDF
-\begin{align}
-F(y) &= \frac{\ln y - \frac{1}{4}\ln L}{\ell \ln k}.
+y &= F^{-1}(u) \\
+  &= L^{1/4} k^{m(1-u)}.
 \end{align}
 
-Differentiating gives the PDF:
+Inverting this gives the CDF
 \begin{align}
-f(y) &= \frac{1}{\ell \ln k} \frac{1}{y},
+\ln y + 4 \ln L &= m(1-u)\ln k \\
+F(y) &= 1 - \frac{\ln y + 4 \ln L}{m \ln k}.
 \end{align}
-Where $y \geq L/2$.
+
+Differentiation shows that the PDF is proportional to
+$1/y$, and the bounds are $[L^{1/4}k^m, L^{1/4}]$.
+
+If there are lots of whales with $L$ LBC, this will also be, in expectation,
+the frequency distribution of their trending scores, at fixed $L$.
+Let's find the joint distribution of $L$ and $y$.
+Let $L$ have a Pareto distribution. Then,
+\begin{align}
+f(L, y) &= f(L)f(y \given L) \\
+        &\propto \frac{1}{yL^{\alpha + 1}}
+\end{align}
+where $L > L_{\rm min}$ and $y \in L^{1/4}[k^m, 1]$.
+
+The conditional $f(L \given y)$ should tell us the
+frequency distribution of LBC balances
+of whales at trending level $y$. It will be proportional to
+the joint:
+\begin{align}
+f(L \given y) &\propto \frac{1}{yL^{\alpha + 1}}
+\end{align}
+and its normalisation is
+\begin{align}
+Z(y) &= \int \frac{1}{yL^{\alpha + 1}} \, dL \\
+     &= \frac{1}{y}\int_{k^{4m}}^{1} \frac{1}{L^{\alpha + 1}} \, dL \\
+     &= \frac{1}{y}\left[\frac{-1}{\alpha L^\alpha}\right]_{k^{4m}}^{1} \\
+     &= \frac{1}{y}\left[\frac{1}{\alpha k^{4m\alpha}} -
+                           \frac{1}{\alpha} \right] \\
+     &= \frac{1}{\alpha y}\left[\frac{1 - k^{4m\alpha}}{k^{4m\alpha}}\right] \\
+\end{align}
+
 
 
 
