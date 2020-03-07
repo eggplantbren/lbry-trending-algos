@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import math
 import numpy as np
 import numpy.random as rng
-#import 
+import ar
 
 # Half life in blocks
 HALF_LIFE = 134
@@ -69,17 +69,34 @@ def generate_claim(func):
 
 # Simulate 10000 claims and plot their trending scores
 claims = []
-for i in range(10000):
+for i in range(20000):
     claims.append(generate_claim(spike_height_experimental))
     print(len(claims))
 
 trending_scores = np.array([claim["trending_score"] for claim in claims])
 support_amounts = np.array([claim["support_amount"] for claim in claims])
+indices = np.argsort(trending_scores)[::-1] # Most trending claims at front
 
-plt.semilogx(support_amounts[trending_scores >= 200],
-             trending_scores[trending_scores >= 200], ".", markersize=3, alpha=0.3)
-plt.xlabel("Support size")
-plt.ylabel("Trending score")
+plt.semilogy(1 + np.arange(100), support_amounts[indices][0:100], "o", alpha=0.5,
+             label="Experimental")
+plt.xlabel("Trending rank")
+plt.ylabel("Support amount")
+
+# Repeat with standard AR algorithm
+claims = []
+for i in range(10000):
+    claims.append(generate_claim(ar.spike_height))
+    print(len(claims))
+
+trending_scores = np.array([claim["trending_score"] for claim in claims])
+support_amounts = np.array([claim["support_amount"] for claim in claims])
+indices = np.argsort(trending_scores)[::-1] # Most trending claims at front
+
+plt.semilogy(1 + np.arange(100), support_amounts[indices][0:100], "o", alpha=0.5,
+             label="Deployed")
+plt.xlabel("Trending rank")
+plt.ylabel("Support amount")
+plt.legend()
 plt.show()
 
     
