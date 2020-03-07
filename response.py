@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import math
 import numpy as np
 import numpy.random as rng
+#import 
 
 # Half life in blocks
 HALF_LIFE = 134
@@ -16,7 +17,7 @@ DURATION = 5*TIMESCALE
 # Decay coefficient per block
 DECAY = 0.5**(1.0/HALF_LIFE)
 
-def spike_height(trending_score, x, x_old, time_boost=1.0):
+def spike_height_experimental(trending_score, x, x_old, time_boost=1.0):
     """
     Compute the size of a trending spike.
     """
@@ -37,9 +38,10 @@ def spike_height(trending_score, x, x_old, time_boost=1.0):
     return time_boost*sign*mag
 
 
-def generate_claim():
+def generate_claim(func):
     """
     Simulate trajectory of a claim
+    based on the given spike_height function
     """
 
     # Whether there was a big support in the past
@@ -59,7 +61,7 @@ def generate_claim():
             x += support_amount
         if i >= views_start_at and rng.rand() <= autotip_prob:
             x += 1 + rng.randint(4)
-        y = DECAY*y + spike_height(y, x, x_old)
+        y = DECAY*y + func(y, x, x_old)
 
     return {"trending_score": y, "supported_at": supported_at,
             "support_amount": support_amount}
@@ -68,7 +70,7 @@ def generate_claim():
 # Simulate 10000 claims and plot their trending scores
 claims = []
 for i in range(10000):
-    claims.append(generate_claim())
+    claims.append(generate_claim(spike_height_experimental))
     print(len(claims))
 
 trending_scores = np.array([claim["trending_score"] for claim in claims])
