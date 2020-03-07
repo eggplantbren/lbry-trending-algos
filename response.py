@@ -8,10 +8,10 @@ import numpy.random as rng
 HALF_LIFE = 134
 
 # E-folding timescale
-TIMESCALE = HALF_LIFE / np.log(2.0)
+TIMESCALE = int(HALF_LIFE / np.log(2.0))
 
 # Duration to simulate
-DURATION = 2000
+DURATION = 5*TIMESCALE
 
 # Decay coefficient per block
 DECAY = 0.5**(1.0/HALF_LIFE)
@@ -44,7 +44,7 @@ def generate_claim():
 
     # Whether there was a big support in the past
     supported_at = DURATION - 1 + int(TIMESCALE*np.log(rng.rand()))
-    support_amount = np.exp(np.log(10000.0) + rng.randn())
+    support_amount = 10.0**(3.0 + 1.0*rng.randn())
 
     # Organic views
     views_start_at = DURATION - 1 + int(TIMESCALE*np.log(rng.rand()))
@@ -71,10 +71,11 @@ for i in range(10000):
     claims.append(generate_claim())
     print(len(claims))
 
-trending_scores = [claim["trending_score"] for claim in claims]
-support_amounts = [claim["support_amount"] for claim in claims]
+trending_scores = np.array([claim["trending_score"] for claim in claims])
+support_amounts = np.array([claim["support_amount"] for claim in claims])
 
-plt.semilogx(support_amounts, trending_scores, ".", markersize=3, alpha=0.1)
+plt.semilogx(support_amounts[trending_scores >= 200],
+             trending_scores[trending_scores >= 200], ".", markersize=3, alpha=0.3)
 plt.xlabel("Support size")
 plt.ylabel("Trending score")
 plt.show()
