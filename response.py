@@ -1,3 +1,4 @@
+import copy
 import matplotlib.pyplot as plt
 import math
 import numpy as np
@@ -5,6 +6,12 @@ import numpy.random as rng
 
 # Half life in blocks
 HALF_LIFE = 134
+
+# E-folding timescale
+TIMESCALE = HALF_LIFE / np.log(2.0)
+
+# Duration to simulate
+DURATION = 2000
 
 # Decay coefficient per block
 DECAY = 0.5**(1.0/HALF_LIFE)
@@ -30,38 +37,46 @@ def spike_height(trending_score, x, x_old, time_boost=1.0):
     return time_boost*sign*mag
 
 
-def simulate_trajectory(total_lbc, blocks=1000):
+def generate_claim():
     """
-    Simulate a trajectory for trending scores
+    Simulate trajectory of a claim
     """
-    claim_lbc = 0.0
-    trending_score = 0.0
-    start = rng.randint(blocks)
-    keep = np.empty(blocks)
-    for i in range(blocks):
-        old = 1.0*claim_lbc
-        if i == start:
-            claim_lbc += total_lbc
-        trending_score = DECAY*trending_score + spike_height(trending_score, claim_lbc, old)
-        keep[i] = trending_score
 
-    plt.plot(keep)
-    return keep
+    # Whether there was a big support in the past
+    supported_at = DURATION - 1 + int(TIMESCALE*np.log(rng.rand()))
+    support_amount = np.exp(np.log(10000.0) + rng.randn())
+
+    # Organic views
+    views_start_at = DURATION - 1 + int(TIMESCALE*np.log(rng.rand()))
+    autotip_prob = 10.0**(-3.0*rng.rand())
+
+    # LBC value and trending score of the claim
+    x = 0.0
+    y = 0.0
+    for i in range(DURATION):
+        x_old = copy.deepcopy(x)
+        if i == supported_at:
+            x += support_amount
+        if i >= views_start_at and rng.rand() <= autotip_prob:
+            x += 1 + rng.randint(4)
+        y = DECAY*y + spike_height(y, x, x_old)
+
+    return {"trending_score": y, "supported_at": supported_at,
+            "support_amount": support_amount}
 
 
-# Number of people using LBRY, and circulating supply (ballpark)
-num = 1000000
-supply = 5.0E8
+# Simulate 10000 claims and plot their trending scores
+claims = []
+for i in range(10000):
+    claims.append(generate_claim())
+    print(len(claims))
 
-# Lognormal LBC wealth distribution
-proportions = np.sort(np.exp(3.0*rng.randn(num)))
-proportions /= proportions.sum()
-net_worths = supply*proportions
-net_worths = np.sort(net_worths)[::-1]
+trending_scores = [claim["trending_score"] for claim in claims]
+support_amounts = [claim["support_amount"] for claim in claims]
 
-for i in range(5):
-    simulate_trajectory(net_worths[i])
-
+plt.semilogx(support_amounts, trending_scores, ".", markersize=3, alpha=0.1)
+plt.xlabel("Support size")
+plt.ylabel("Trending score")
 plt.show()
 
     
