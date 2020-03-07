@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import math
 import numpy as np
+import numpy.random as rng
 
 # Half life in blocks
 HALF_LIFE = 134
@@ -29,61 +30,38 @@ def spike_height(trending_score, x, x_old, time_boost=1.0):
     return time_boost*sign*mag
 
 
+def simulate_trajectory(total_lbc, blocks=1000):
+    """
+    Simulate a trajectory for trending scores
+    """
+    claim_lbc = 0.0
+    trending_score = 0.0
+    start = rng.randint(blocks)
+    keep = np.empty(blocks)
+    for i in range(blocks):
+        old = 1.0*claim_lbc
+        if i == start:
+            claim_lbc += total_lbc
+        trending_score = DECAY*trending_score + spike_height(trending_score, claim_lbc, old)
+        keep[i] = trending_score
 
-def update_lbc(i, lbc, strategy, revoke_at_block=False):
-
-    if revoke_at_block is not None and i == revoke_at_block:
-        lbc[i] = 0.0
-        return
-
-    if i == 0 or (i-1) % strategy["gap"] != 0 \
-                    or i >= 1 + strategy["gap"]*strategy["num_supports"]:
-        lbc[i] = lbc[i-1]
-    else:
-        lbc[i] = lbc[i-1] + strategy["total_lbc"]/strategy["num_supports"]
-
-
-def simulate_strategy(t, strategy, revoke_at_block=False):
-    lbc = np.empty(len(t))
-    trending = np.empty(len(t))
-
-    lbc[0] = 0.0
-    trending[0] = 0.0
-
-    for i in range(1, len(t)):
-        update_lbc(i, lbc, strategy, revoke_at_block)
-        trending[i] = DECAY*trending[i-1] + spike_height(trending[i-1], lbc[i], lbc[i-1])
-
-    return {"lbc": lbc, "trending": trending}
+    plt.plot(keep)
+    return keep
 
 
-if __name__ == "__main__":
+# Number of people using LBRY, and circulating supply (ballpark)
+num = 1000000
+supply = 5.0E8
 
-    # Timespan of the simulation in blocks
-    t = np.arange(0, 1001)
+# Lognormal LBC wealth distribution
+proportions = np.sort(np.exp(3.0*rng.randn(num)))
+proportions /= proportions.sum()
+net_worths = supply*proportions
+net_worths = np.sort(net_worths)[::-1]
 
-    plt.figure(figsize=(11, 7))
+for i in range(5):
+    simulate_trajectory(net_worths[i])
 
-    strategy = {"num_supports": 1, "gap": 1, "total_lbc": 100000}
-    trending = simulate_strategy(t, strategy)["trending"]
-    plt.plot(t/24.0, trending, label="100K LBC in a single support")
+plt.show()
 
-    strategy = {"num_supports": 1, "gap": 1, "total_lbc": 10000}
-    trending = simulate_strategy(t, strategy, revoke_at_block=576)["trending"]
-    plt.plot(t/24.0, trending, label="10K LBC in a single support, revoked after 24h")
-
-    strategy = {"num_supports": 5, "gap": 220, "total_lbc": 10000}
-    trending = simulate_strategy(t, strategy)["trending"]
-    plt.plot(t/24.0, trending, label="10K divided over five supports")
-
-    strategy = {"num_supports": 576, "gap": 1, "total_lbc": 5*576}
-    trending = simulate_strategy(t, strategy)["trending"]
-    plt.plot(t/24.0, trending, label=\
-            "5 LBC every block for 24 hours (total LBC={tot})"\
-            .format(tot=strategy["total_lbc"]))
-
-    plt.xlabel("Time (hours)")
-    plt.ylabel("Trending score")
-    plt.legend()
-    plt.savefig("response.svg")
-    plt.show()
+    
