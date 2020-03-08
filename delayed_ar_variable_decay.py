@@ -136,23 +136,11 @@ class TrendingData:
 
 
 
-    def remove_whales(self, height):
+    def remove_whales(self):
+        self.whales = set()
 
-        temp = set()
-        for claim_hash in self.whales:
-            if self.claims[claim_hash]["trending_score"]/get_time_boost(height)\
-                            < WHALE_THRESHOLD:
-                temp.add(claim_hash)
-        for claim_hash in temp:
-            self.whales.remove(claim_hash)
-
-
-    def add_whale(self, height, claim_hash):
-
-        # Check for new/existing whale status
-        if self.claims[claim_hash]["trending_score"]/get_time_boost(height)\
-                            >= WHALE_THRESHOLD:
-            self.whales.add(claim_hash)
+    def add_whale(self, claim_hash):
+        self.whales.add(claim_hash)
 
 
     def apply_spikes(self, height):
@@ -283,9 +271,10 @@ def test_trending():
 
 
         # Update whale list and process whale penalties
-        data.remove_whales(height)
+        data.remove_whales()
         for key in data.claims:
-            data.add_whale(height, key)
+            if data.claims[key]["trending_score"]/get_time_boost(height) >= WHALE_THRESHOLD:
+                data.add_whale(key)
         data.process_whales(height)
 
 
@@ -308,9 +297,6 @@ def test_trending():
 #    plt.ylim([0, 5])
     plt.show()
 
-    print([data.claims[key] for key in data.claims])
-    print("")
-    print(data.whales)
 
 # One global instance
 # pylint: disable=C0103
@@ -381,11 +367,10 @@ def run(db, height, final_height, recalculate_claim_hashes):
     if height % SAVE_INTERVAL == 0:
 
         trending_log("    Processing whales...")
-
         trending_data.remove_whales()
         for row in db.execute("SELECT claim_hash FROM claim WHERE trending_mixed >= ?;",
                               (WHALE_THRESHOLD*get_time_boost(height), )):
-            trending_data.add_whale(height, claim_hash)
+            trending_data.add_whale(claim_hash)
         trending_data.process_whales()
         trending_log("done.")
         
