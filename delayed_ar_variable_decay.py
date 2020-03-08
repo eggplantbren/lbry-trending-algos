@@ -129,7 +129,7 @@ class TrendingData:
         # Units are CONSTANT in here
         self.pending_spikes = []
 
-    def insert_claim_from_load(self, claim_hash, trending_score, total_amount):
+    def insert_claim_from_load(self, height, claim_hash, trending_score, total_amount):
         assert not self.initialised
         self.claims[claim_hash] = {"trending_score": trending_score,
                                    "total_amount": total_amount,
@@ -350,7 +350,7 @@ def run(db, height, final_height, recalculate_claim_hashes):
                                          AS total_amount
                               FROM claim;
                               """):
-            trending_data.insert_claim_from_load(row[0], row[1], 1E-8*row[2])
+            trending_data.insert_claim_from_load(height, row[0], row[1], 1E-8*row[2])
         trending_data.initialised = True
     else:
         for row in db.execute(f"""
