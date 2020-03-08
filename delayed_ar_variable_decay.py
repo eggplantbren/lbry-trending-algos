@@ -134,10 +134,10 @@ class TrendingData:
         self.claims[claim_hash] = {"trending_score": trending_score,
                                    "total_amount": total_amount,
                                    "changed": False}
-        self.update_whale_list(claim_hash)
+        self.update_whale_list(height, claim_hash)
 
 
-    def update_whale_list(self, claim_hash, trending_normed=None):
+    def update_whale_list(self, height, claim_hash, trending_normed=None):
 
         if trending_normed is None:
             trending_normed = self.claims[claim_hash]["trending_score"]/get_time_boost(height)
@@ -231,7 +231,7 @@ class TrendingData:
             trending_normed = self.claims[claim_hash]["trending_score"]/get_time_boost(height)
 
             # Update the whale list
-            self.update_whale_list(claim_hash, trending_normed)
+            self.update_whale_list(height, claim_hash, trending_normed)
 
             # Total LBC
             if claim_hash in self.whales and total_amount >= WHALE_THRESHOLD:
