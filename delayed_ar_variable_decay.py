@@ -382,11 +382,11 @@ def run(db, height, final_height, recalculate_claim_hashes):
 
         trending_log("    Processing whales...")
 
-        self.remove_whales()
+        trending_data.remove_whales()
         for row in db.execute("SELECT claim_hash FROM claim WHERE trending_mixed >= ?;",
                               (WHALE_THRESHOLD*get_time_boost(height), )):
-            self.add_whale(height, claim_hash)
-        self.process_whales()
+            trending_data.add_whale(height, claim_hash)
+        trending_data.process_whales()
         trending_log("done.")
         
 
