@@ -72,7 +72,7 @@ def check_trending_values(connection):
         print("done.")
 
 
-def spike_height(trending_score, x, x_old):
+def spike_height(x, x_old):
     """
     Compute the size of a trending spike (normed - constant units).
     """
@@ -137,18 +137,20 @@ class TrendingData:
         self.update_whale_list(claim_hash)
 
 
-    def update_whale_list(claim_hash, trending_normed=None):
+    def update_whale_list(self, claim_hash, trending_normed=None):
 
         if trending_normed is None:
             trending_normed = self.claims[claim_hash]["trending_score"]/get_time_boost(height)
 
         # Check for "ex-whale" status
         if claim_hash in self.whales and \
-                (total_amount < WHALE_THRESHOLD and trending_normed < WHALE_TRENDING_THRESHOLD):
+                (self.claims[claim_hash]["total_amount"] < WHALE_THRESHOLD and\
+                 trending_normed < WHALE_TRENDING_THRESHOLD):
             self.whales.remove(claim_hash)
 
         # Check for new/existing whale status
-        if total_amount >= WHALE_THRESHOLD or trending_normed >= WHALE_TRENDING_THRESHOLD:
+        if self.claims[claim_hash]["total_amount"] >= WHALE_THRESHOLD or\
+                trending_normed >= WHALE_TRENDING_THRESHOLD:
             self.whales.add(claim_hash)
 
 
@@ -188,25 +190,19 @@ class TrendingData:
                          "total_amount": 0.0,
                          "changed": False}
 
-        # Convert to constant units
-        trending_normed = old_state["trending_score"]/get_time_boost(height)
-        self.update_whale_list(claim_hash, trending_normed)
-
         # Calculate LBC change
         change = total_amount - old_state["total_amount"]
 
         # Modify data if there was an LBC change
         if change != 0.0:
-            spike = spike_height(trending_normed,
-                                 total_amount,
+            spike = spike_height(total_amount,
                                  old_state["total_amount"])
             delay = min(int((total_amount + 1E-8)**(1/3)), 3*HALF_LIFE)
 
             if change < 0.0:
 
                 # How big would the spike be for the inverse movement?
-                reverse_spike = spike_height(old_state["trending_score"]/get_time_boost(height),
-                                             old_state["total_amount"], total_amount)
+                reverse_spike = spike_height(old_state["total_amount"], total_amount)
 
                 # Remove that much spike from future pending ones
                 for future_spike in self.pending_spikes:
@@ -231,6 +227,11 @@ class TrendingData:
 
         # Make bigger claims decay faster
         if height % SAVE_INTERVAL == 0:
+
+            trending_normed = self.claims[claim_hash]["trending_score"]/get_time_boost(height)
+
+            # Update the whale list
+            self.update_whale_list(claim_hash, trending_normed)
 
             # Total LBC
             if claim_hash in self.whales and total_amount >= WHALE_THRESHOLD:
