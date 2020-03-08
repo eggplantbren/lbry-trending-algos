@@ -204,7 +204,7 @@ class TrendingData:
                             reverse_spike = 0.0
 
                 delay = 0
-                spike -= reverse_spike
+                spike = -reverse_spike
 
             self.pending_spikes.append({"height": height + delay,
                                         "claim_hash": claim_hash,
@@ -252,7 +252,7 @@ def test_trending():
     for key in data.claims:
         trajectories[key] = [data.claims[key]["trending_score"]]
 
-    for height in range(1, 5000):
+    for height in range(1, 1000):
 
         if height % RENORM_INTERVAL == 0:
             for key in data.claims:
@@ -262,7 +262,7 @@ def test_trending():
 #        if random.uniform(0.0, 1.0) <= 0.003:
 #            data.update_claim(height, "random_claim", 10.0**random.gauss(2.0, 2.0))
 
-#        # Add new supports
+        # Add new supports
         if height <= 500:
             data.update_claim(height, "whale_claim_botted",
                               data.claims["whale_claim_botted"]["total_amount"] + 5E5/500)
@@ -283,7 +283,6 @@ def test_trending():
             if data.claims[key]["trending_score"]/get_time_boost(height) >= WHALE_THRESHOLD:
                 data.add_whale(key)
         data.process_whales(height)
-
 
         for key in data.claims:
             trajectories[key].append(data.claims[key]["trending_score"]/get_time_boost(height))
