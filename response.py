@@ -67,36 +67,41 @@ def generate_claim(func):
             "support_amount": support_amount}
 
 
-# Simulate 10000 claims and plot their trending scores
-claims = []
-for i in range(20000):
-    claims.append(generate_claim(spike_height_experimental))
-    print(len(claims))
+def compare():
+    """
+    Compare the deployed trending algorithm and the experimental
+    one from this file.
+    """
+    # Simulate 10000 claims and plot their trending scores
+    claims = []
+    for i in range(20000):
+        claims.append(generate_claim(spike_height_experimental))
+        print(len(claims))
 
-trending_scores = np.array([claim["trending_score"] for claim in claims])
-support_amounts = np.array([claim["support_amount"] for claim in claims])
-indices = np.argsort(trending_scores)[::-1] # Most trending claims at front
+    trending_scores = np.array([claim["trending_score"] for claim in claims])
+    support_amounts = np.array([claim["support_amount"] for claim in claims])
+    indices = np.argsort(trending_scores)[::-1] # Most trending claims at front
 
-plt.semilogy(1 + np.arange(100), support_amounts[indices][0:100], "o", alpha=0.5,
-             label="Experimental")
-plt.xlabel("Trending rank")
-plt.ylabel("Support amount")
+    plt.semilogy(1 + np.arange(100), support_amounts[indices][0:100], "o", alpha=0.5,
+                 label="Experimental")
+    plt.xlabel("Trending rank")
+    plt.ylabel("Support amount")
 
-# Repeat with standard AR algorithm
-claims = []
-for i in range(10000):
-    claims.append(generate_claim(ar.spike_height))
-    print(len(claims))
+    # Repeat with standard AR algorithm
+    claims = []
+    for i in range(10000):
+        claims.append(generate_claim(ar.spike_height))
+        print(len(claims))
 
-trending_scores = np.array([claim["trending_score"] for claim in claims])
-support_amounts = np.array([claim["support_amount"] for claim in claims])
-indices = np.argsort(trending_scores)[::-1] # Most trending claims at front
+    trending_scores = np.array([claim["trending_score"] for claim in claims])
+    support_amounts = np.array([claim["support_amount"] for claim in claims])
+    indices = np.argsort(trending_scores)[::-1] # Most trending claims at front
 
-plt.semilogy(1 + np.arange(100), support_amounts[indices][0:100], "o", alpha=0.5,
-             label="Deployed")
-plt.xlabel("Trending rank")
-plt.ylabel("Support amount")
-plt.legend()
-plt.show()
+    plt.semilogy(1 + np.arange(100), support_amounts[indices][0:100], "o", alpha=0.5,
+                 label="Deployed")
+    plt.xlabel("Trending rank")
+    plt.ylabel("Support amount")
+    plt.legend()
+    plt.show()
 
-    
+        
