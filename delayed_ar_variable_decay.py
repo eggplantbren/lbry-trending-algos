@@ -13,8 +13,7 @@ import time
 HALF_LIFE = 134
 
 # Whale threshold (higher -> less DB writing)
-WHALE_THRESHOLD = 10000.0
-WHALE_TRENDING_THRESHOLD = 50.0
+WHALE_THRESHOLD = 5.0
 
 # Decay coefficient per block
 DECAY = 0.5**(1.0/HALF_LIFE)
@@ -83,10 +82,10 @@ def spike_height(x, x_old):
         sign = -1.0
 
     # Magnitude
-    alpha = 1.0
+    alpha = 0.3
     ell = 100.0
-    x_ = max(x, x_old)
-    mag = abs(x - x_old) * ell**alpha*(x_ + ell)**(-alpha)
+    x_ = x
+    mag = abs(x**0.5 - x_old**0.5)*ell**alpha*(x + ell)**(-alpha)
 
     return sign*mag
 
@@ -134,23 +133,25 @@ class TrendingData:
         self.claims[claim_hash] = {"trending_score": trending_score,
                                    "total_amount": total_amount,
                                    "changed": False}
-        self.update_whale_list(height, claim_hash)
 
 
-    def update_whale_list(self, height, claim_hash, trending_normed=None):
 
-        if trending_normed is None:
-            trending_normed = self.claims[claim_hash]["trending_score"]/get_time_boost(height)
+    def remove_whales(self, height):
 
-        # Check for "ex-whale" status
-        if claim_hash in self.whales and \
-                (self.claims[claim_hash]["total_amount"] < WHALE_THRESHOLD and\
-                 trending_normed < WHALE_TRENDING_THRESHOLD):
+        temp = set()
+        for claim_hash in self.whales:
+            if self.claims[claim_hash]["trending_score"]/get_time_boost(height)\
+                            < WHALE_THRESHOLD:
+                temp.add(claim_hash)
+        for claim_hash in temp:
             self.whales.remove(claim_hash)
 
+
+    def add_whale(self, height, claim_hash):
+
         # Check for new/existing whale status
-        if self.claims[claim_hash]["total_amount"] >= WHALE_THRESHOLD or\
-                trending_normed >= WHALE_TRENDING_THRESHOLD:
+        if self.claims[claim_hash]["trending_score"]/get_time_boost(height)\
+                            >= WHALE_THRESHOLD:
             self.whales.add(claim_hash)
 
 
@@ -225,25 +226,18 @@ class TrendingData:
                                        "trending_score": old_state["trending_score"],
                                        "changed": False}
 
-        # Make bigger claims decay faster
-        if height % SAVE_INTERVAL == 0:
+    def process_whales(self, height):
+        """
+        Whale claims decay faster.
+        """
+        if height % SAVE_INTERVAL != 0:
+            return
 
+        for claim_hash in self.whales:
             trending_normed = self.claims[claim_hash]["trending_score"]/get_time_boost(height)
-
-            # Update the whale list
-            self.update_whale_list(height, claim_hash, trending_normed)
-
-            # Total LBC
-            if claim_hash in self.whales and total_amount >= WHALE_THRESHOLD:
-                self.claims[claim_hash]["trending_score"] *= \
-                            (DECAY**SAVE_INTERVAL)**(5*math.log10(total_amount/WHALE_THRESHOLD))
-                self.claims[claim_hash]["changed"] = True
-
-            # Trending score
-            if claim_hash in self.whales and trending_normed >= WHALE_TRENDING_THRESHOLD:
-                self.claims[claim_hash]["trending_score"] *= \
-                            (DECAY**SAVE_INTERVAL)**(5*math.log10(trending_normed/WHALE_TRENDING_THRESHOLD))
-                self.claims[claim_hash]["changed"] = True
+            factor = (DECAY**SAVE_INTERVAL)**(5*math.log10(trending_normed/WHALE_THRESHOLD))
+            self.claims[claim_hash]["trending_score"] *= factor
+            self.claims[claim_hash]["changed"] = True
 
 
 def test_trending():
@@ -280,17 +274,25 @@ def test_trending():
 #        if random.uniform(0.0, 1.0) <= 0.003:
 #            data.update_claim(height, "random_claim", 10.0**random.gauss(2.0, 2.0))
 
-        # Add new supports
+#        # Add new supports
         if height <= 500:
             data.update_claim(height, "whale_claim_botted",
                               data.claims["whale_claim_botted"]["total_amount"] + 5E5/500)
             data.update_claim(height, "popular_minnow_claim",
                               data.claims["popular_minnow_claim"]["total_amount"] + 1.0)
 
+
+        # Update whale list and process whale penalties
+        data.remove_whales(height)
+        for key in data.claims:
+            data.add_whale(height, key)
+        data.process_whales(height)
+
+
         # Abandon all supports
-        if height == 500:
-            for key in data.claims:
-                data.update_claim(height, key, 0.01)
+#        if height == 500:
+#            for key in data.claims:
+#                data.update_claim(height, key, 0.01)
 
         data.apply_spikes(height)
 
@@ -298,11 +300,17 @@ def test_trending():
             trajectories[key].append(data.claims[key]["trending_score"]/get_time_boost(height))
 
     import matplotlib.pyplot as plt
+#    import numpy as np
     for key in data.claims:
         plt.plot(trajectories[key], label=key)
     plt.legend()
+#    plt.plot(np.array(trajectories["dolphin_claim"])/np.array(trajectories["whale_claim_one_support"]))
+#    plt.ylim([0, 5])
     plt.show()
 
+    print([data.claims[key] for key in data.claims])
+    print("")
+    print(data.whales)
 
 # One global instance
 # pylint: disable=C0103
@@ -371,6 +379,16 @@ def run(db, height, final_height, recalculate_claim_hashes):
 
     # Write trending scores to DB
     if height % SAVE_INTERVAL == 0:
+
+        trending_log("    Processing whales...")
+
+        self.remove_whales()
+        for row in db.execute("SELECT claim_hash FROM claim WHERE trending_mixed >= ?;",
+                              (WHALE_THRESHOLD*get_time_boost(height), )):
+            self.add_whale(height, claim_hash)
+        self.process_whales()
+        trending_log("done.")
+        
 
         trending_log("    Writing trending scores to db...")
 
