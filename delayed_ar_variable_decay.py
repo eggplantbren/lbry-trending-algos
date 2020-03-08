@@ -72,11 +72,10 @@ def check_trending_values(connection):
         print("done.")
 
 
-def spike_height(trending_score, x, x_old, time_boost=1.0):
+def spike_height(trending_score, x, x_old):
     """
-    Compute the size of a trending spike.
+    Compute the size of a trending spike (normed - constant units).
     """
-
 
     # Sign of trending spike
     sign = 1.0
@@ -89,7 +88,7 @@ def spike_height(trending_score, x, x_old, time_boost=1.0):
     x_ = max(x, x_old)
     mag = abs(x - x_old) * ell**alpha*(x_ + ell)**(-alpha)
 
-    return time_boost*sign*mag
+    return sign*mag
 
 
 
@@ -135,7 +134,21 @@ class TrendingData:
         self.claims[claim_hash] = {"trending_score": trending_score,
                                    "total_amount": total_amount,
                                    "changed": False}
-        if total_amount >= WHALE_THRESHOLD:
+        self.update_whale_list(claim_hash)
+
+
+    def update_whale_list(claim_hash, trending_normed=None):
+
+        if trending_normed is None:
+            trending_normed = self.claims[claim_hash]["trending_score"]/get_time_boost(height)
+
+        # Check for "ex-whale" status
+        if claim_hash in self.whales and \
+                (total_amount < WHALE_THRESHOLD and trending_normed < WHALE_TRENDING_THRESHOLD):
+            self.whales.remove(claim_hash)
+
+        # Check for new/existing whale status
+        if total_amount >= WHALE_THRESHOLD or trending_normed >= WHALE_TRENDING_THRESHOLD:
             self.whales.add(claim_hash)
 
 
@@ -177,15 +190,7 @@ class TrendingData:
 
         # Convert to constant units
         trending_normed = old_state["trending_score"]/get_time_boost(height)
-
-        # Check for "ex-whale" status
-        if claim_hash in self.whales and \
-                (total_amount < WHALE_THRESHOLD and trending_normed < WHALE_TRENDING_THRESHOLD):
-            self.whales.remove(claim_hash)
-
-        # Check for new/existing whale status
-        if total_amount >= WHALE_THRESHOLD or trending_normed >= WHALE_TRENDING_THRESHOLD:
-            self.whales.add(claim_hash)
+        self.update_whale_list(claim_hash, trending_normed)
 
         # Calculate LBC change
         change = total_amount - old_state["total_amount"]
