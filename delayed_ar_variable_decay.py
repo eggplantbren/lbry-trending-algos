@@ -269,6 +269,13 @@ def test_trending():
             data.update_claim(height, "popular_minnow_claim",
                               data.claims["popular_minnow_claim"]["total_amount"] + 1.0)
 
+        # Abandon all supports
+        if height == 500:
+            for key in data.claims:
+                data.update_claim(height, key, 0.01)
+
+        # Apply spikes
+        data.apply_spikes(height)
 
         # Update whale list and process whale penalties
         data.remove_whales()
@@ -277,13 +284,6 @@ def test_trending():
                 data.add_whale(key)
         data.process_whales(height)
 
-
-        # Abandon all supports
-#        if height == 500:
-#            for key in data.claims:
-#                data.update_claim(height, key, 0.01)
-
-        data.apply_spikes(height)
 
         for key in data.claims:
             trajectories[key].append(data.claims[key]["trending_score"]/get_time_boost(height))
@@ -372,7 +372,7 @@ def run(db, height, final_height, recalculate_claim_hashes):
                               (WHALE_THRESHOLD*get_time_boost(height), )):
             trending_data.add_whale(row[0])
         trending_data.process_whales(height)
-        trending_log("done.")
+        trending_log("done.\n")
         
 
         trending_log("    Writing trending scores to db...")
