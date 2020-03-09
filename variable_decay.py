@@ -192,7 +192,7 @@ class TrendingData:
         if change != 0.0:
             spike = spike_height(total_amount,
                                  old_state["total_amount"])
-            delay = min(int((total_amount + 1E-8)**(1/3)), 3*HALF_LIFE)
+            delay = min(int((total_amount + 1E-8)**0.4), 3*HALF_LIFE)
 
             if change < 0.0:
 
