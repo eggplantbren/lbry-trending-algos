@@ -134,14 +134,11 @@ class TrendingData:
                                    "total_amount": total_amount,
                                    "changed": False}
 
-
-
-    def remove_whales(self):
-        self.whales = set()
+        if trending_score >= WHALE_THRESHOLD*get_time_boost(height):
+            self.add_whale(claim_hash)
 
     def add_whale(self, claim_hash):
         self.whales.add(claim_hash)
-
 
     def apply_spikes(self, height):
         """
@@ -159,9 +156,18 @@ class TrendingData:
                 self.claims[spike["claim_hash"]]["trending_score"] += time_boost*spike["size"]
                 self.claims[spike["claim_hash"]]["changed"] = True
 
+                if self.claims[spike["claim_hash"]]["trending_score"] >= WHALE_THRESHOLD*time_boost:
+                    self.add_whale(spike["claim_hash"])
+                if spike["claim_hash"] in self.whales and \
+                    self.claims[spike["claim_hash"]]["trending_score"] < WHALE_THRESHOLD*time_boost:
+                    self.whales.remove(spike["claim_hash"])
+
+
         # Keep only future spikes
         self.pending_spikes = [s for s in self.pending_spikes \
                                if s["height"] > height]
+
+
 
 
     def update_claim(self, height, claim_hash, total_amount):
@@ -278,7 +284,7 @@ def test_trending():
         data.apply_spikes(height)
 
         # Update whale list and process whale penalties
-        data.remove_whales()
+        data.whales = set([])
         for key in data.claims:
             if data.claims[key]["trending_score"]/get_time_boost(height) >= WHALE_THRESHOLD:
                 data.add_whale(key)
@@ -318,6 +324,7 @@ def run(db, height, final_height, recalculate_claim_hashes):
         trending_log("    Renormalising trending scores...")
 
         keys = trending_data.claims.keys()
+        trending_data.whales = set([])
         for key in keys:
             if trending_data.claims[key]["trending_score"] != 0.0:
                 trending_data.claims[key]["trending_score"] *= DECAY_PER_RENORM
@@ -326,6 +333,10 @@ def run(db, height, final_height, recalculate_claim_hashes):
                 # Tiny becomes zero
                 if abs(trending_data.claims[key]["trending_score"]) < 1E-3:
                     trending_data.claims[key]["trending_score"] = 0.0
+
+                # Re-mark whales
+                if trending_data.claims[key]["trending_score"] >= WHALE_CUTOFF*get_time_boost():
+                    trending_data.add_whale(key)
 
         trending_log("done.\n")
 
@@ -366,10 +377,6 @@ def run(db, height, final_height, recalculate_claim_hashes):
     if height % SAVE_INTERVAL == 0:
 
         trending_log("    Finding and processing whales...")
-        trending_data.remove_whales()
-        for row in db.execute("SELECT claim_hash FROM claim WHERE trending_mixed >= ?;",
-                              (WHALE_THRESHOLD*get_time_boost(height), )):
-            trending_data.add_whale(row[0])
         trending_log(str(len(trending_data.whales)) + " whales found...")
         trending_data.process_whales(height)
         trending_log("done.\n")
