@@ -41,7 +41,7 @@ def install(connection):
     check_trending_values(connection)
 
     if TRENDING_LOG:
-        f = open("trending_ar.log", "a")
+        f = open("trending_variable_decay.log", "w")
         f.close()
 
 # Stub
@@ -103,7 +103,7 @@ def trending_log(s):
     Log a string.
     """
     if TRENDING_LOG:
-        fout = open("trending_ar.log", "a")
+        fout = open("trending_variable_decay.log", "a")
         fout.write(s)
         fout.flush()
         fout.close()
@@ -235,7 +235,7 @@ class TrendingData:
 
             # The -1 is because this is just the *extra* part being applied
             factor = (DECAY**SAVE_INTERVAL)**(decay_rate_factor - 1.0)
-            print(claim_hash, trending_normed, decay_rate_factor)
+            # print(claim_hash, trending_normed, decay_rate_factor)
             self.claims[claim_hash]["trending_score"] *= factor
             self.claims[claim_hash]["changed"] = True
 
