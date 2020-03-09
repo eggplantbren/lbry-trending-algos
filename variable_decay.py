@@ -10,10 +10,10 @@ import random
 import time
 
 # Half life in blocks *for lower LBC claims* (it's shorter for whale claims)
-HALF_LIFE = 134
+HALF_LIFE = 200
 
 # Whale threshold (higher -> less DB writing)
-WHALE_THRESHOLD = 5.0
+WHALE_THRESHOLD = 3.0
 
 # Decay coefficient per block
 DECAY = 0.5**(1.0/HALF_LIFE)
@@ -82,10 +82,10 @@ def spike_height(x, x_old):
         sign = -1.0
 
     # Magnitude
-    alpha = 0.3
-    ell = 100.0
-    x_ = x
-    mag = abs(x**0.5 - x_old**0.5)*ell**alpha*(x + ell)**(-alpha)
+    mag = abs(x**0.25 - x_old**0.25)
+
+    # Minnow boost
+    mag *= 1.0 + 2E4/(x + 100.0)**2
 
     return sign*mag
 
@@ -192,7 +192,7 @@ class TrendingData:
         if change != 0.0:
             spike = spike_height(total_amount,
                                  old_state["total_amount"])
-            delay = min(int((total_amount + 1E-8)**0.4), 3*HALF_LIFE)
+            delay = min(int((total_amount + 1E-8)**0.4), HALF_LIFE)
 
             if change < 0.0:
 
@@ -229,7 +229,13 @@ class TrendingData:
 
         for claim_hash in self.whales:
             trending_normed = self.claims[claim_hash]["trending_score"]/get_time_boost(height)
-            factor = (DECAY**SAVE_INTERVAL)**(5*math.log10(trending_normed/WHALE_THRESHOLD))
+
+            # Overall multiplication factor for decay rate
+            decay_rate_factor = trending_normed/WHALE_THRESHOLD
+
+            # The -1 is because this is just the *extra* part being applied
+            factor = (DECAY**SAVE_INTERVAL)**(decay_rate_factor - 1.0)
+            print(claim_hash, trending_normed, decay_rate_factor)
             self.claims[claim_hash]["trending_score"] *= factor
             self.claims[claim_hash]["changed"] = True
 
@@ -242,14 +248,17 @@ def test_trending():
     data.initialised = True
 
     height = 0
-    data.update_claim(height, "whale_claim_one_support", 0.01)
-    data.update_claim(height, "whale_claim_botted", 0.01)
-    data.update_claim(height, "popular_minnow_claim", 0.01)
-    data.update_claim(height, "dolphin_claim", 0.01)
-    data.update_claim(height, "whale_claim_one_support",
-                      data.claims["whale_claim_one_support"]["total_amount"] + 5E5)
-    data.update_claim(height, "dolphin_claim",
-                      data.claims["dolphin_claim"]["total_amount"] + 1E3)
+    data.update_claim(height, "huge_whale_one_support", 0.01)
+    data.update_claim(height, "huge_whale_botted", 0.01)
+    data.update_claim(height, "medium_whale_one_support", 0.01)
+    data.update_claim(height, "minnow", 0.01)
+    data.update_claim(height, "dolphin", 0.01)
+    data.update_claim(height, "medium_whale_one_support",
+                      data.claims["medium_whale_one_support"]["total_amount"] + 5E4)
+    data.update_claim(height, "huge_whale_one_support",
+                      data.claims["huge_whale_one_support"]["total_amount"] + 5E5)
+    data.update_claim(height, "dolphin",
+                      data.claims["dolphin"]["total_amount"] + 1E3)
 #    data.update_claim(height, "random_claim", 10.0**random.gauss(2.0, 2.0))
     data.apply_spikes(height)
 
@@ -270,10 +279,10 @@ def test_trending():
 
         # Add new supports
         if height <= 500:
-            data.update_claim(height, "whale_claim_botted",
-                              data.claims["whale_claim_botted"]["total_amount"] + 5E5/500)
-            data.update_claim(height, "popular_minnow_claim",
-                              data.claims["popular_minnow_claim"]["total_amount"] + 1.0)
+            data.update_claim(height, "huge_whale_botted",
+                              data.claims["huge_whale_botted"]["total_amount"] + 5E5/500)
+            data.update_claim(height, "minnow",
+                              data.claims["minnow"]["total_amount"] + 1.0)
 
         # Abandon all supports
         if height == 500:
@@ -294,12 +303,14 @@ def test_trending():
             trajectories[key].append(data.claims[key]["trending_score"]/get_time_boost(height))
 
     import matplotlib.pyplot as plt
-#    import numpy as np
+    import numpy as np
     for key in data.claims:
         plt.plot(trajectories[key], label=key)
     plt.legend()
-#    plt.plot(np.array(trajectories["dolphin_claim"])/np.array(trajectories["whale_claim_one_support"]))
-#    plt.ylim([0, 5])
+
+#    import numpy as np
+#    plt.plot(np.array(trajectories["dolphin"])/np.array(trajectories["huge_whale_one_support"]))
+##    plt.ylim([0, 5])
     plt.show()
 
 
