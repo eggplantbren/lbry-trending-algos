@@ -5,9 +5,8 @@ The spike height function is also simpler.
 """
 
 import copy
-import math
-import random
 import time
+import apsw
 
 # Half life in blocks *for lower LBC claims* (it's shorter for whale claims)
 HALF_LIFE = 200
@@ -36,7 +35,7 @@ TRENDING_LOG = True
 
 def install(connection):
     """
-    Install the AR trending algorithm.
+    Install the trending algorithm.
     """
     check_trending_values(connection)
 
@@ -247,7 +246,7 @@ def test_trending():
     """
 
     # Create a fake "claims.db" for testing
-    import apsw
+    # pylint: disable=I1101
     dbc = apsw.Connection(":memory:")
     db = dbc.cursor()
 
@@ -314,19 +313,16 @@ def test_trending():
         run(db, height, height, everything.keys())
 
         for key in trending_data.claims:
-            trajectories[key].append(trending_data.claims[key]["trending_score"]/get_time_boost(height))
+            trajectories[key].append(trending_data.claims[key]["trending_score"]\
+                                        /get_time_boost(height))
 
     dbc.close()
 
+    # pylint: disable=C0415
     import matplotlib.pyplot as plt
-#    import numpy as np
     for key in trending_data.claims:
         plt.plot(trajectories[key], label=key)
     plt.legend()
-
-#    import numpy as np
-#    plt.plot(np.array(trajectories["small_whale"])/np.array(trajectories["huge_whale_one_support"]))
-##    plt.ylim([0, 5])
     plt.show()
 
 
@@ -362,7 +358,7 @@ def run(db, height, final_height, recalculate_claim_hashes):
                     trending_data.claims[key]["trending_score"] = 0.0
 
                 # Re-mark whales
-                if trending_data.claims[key]["trending_score"] >= WHALE_CUTOFF*get_time_boost():
+                if trending_data.claims[key]["trending_score"] >= WHALE_THRESHOLD*get_time_boost(height):
                     trending_data.add_whale(key)
 
         trending_log("done.\n")
@@ -431,4 +427,3 @@ def run(db, height, final_height, recalculate_claim_hashes):
 
 if __name__ == "__main__":
     test_trending()
-
