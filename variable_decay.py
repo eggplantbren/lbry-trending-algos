@@ -40,7 +40,7 @@ def install(connection):
     check_trending_values(connection)
 
     if TRENDING_LOG:
-        f = open("trending_variable_decay.log", "w")
+        f = open("trending_variable_decay.log", "a")
         f.close()
 
 # Stub
@@ -333,12 +333,12 @@ trending_data = TrendingData()
 def run(db, height, final_height, recalculate_claim_hashes):
 
     if height < final_height - 5*HALF_LIFE:
-        trending_log("Skipping AR trending at block {h}.\n".format(h=height))
+        trending_log("Skipping variable_decay trending at block {h}.\n".format(h=height))
         return
 
     start = time.time()
 
-    trending_log("Calculating AR trending at block {h}.\n".format(h=height))
+    trending_log("Calculating variable_decay trending at block {h}.\n".format(h=height))
     trending_log("    Length of trending data = {l}.\n"\
                         .format(l=len(trending_data.claims)))
 
@@ -370,6 +370,8 @@ def run(db, height, final_height, recalculate_claim_hashes):
 
     # Update claims from db
     if not trending_data.initialised:
+
+        trending_log("initial load...")
         # On fresh launch
         for row in db.execute("""
                               SELECT claim_hash, trending_mixed,
