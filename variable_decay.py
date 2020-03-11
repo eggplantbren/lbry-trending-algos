@@ -242,74 +242,90 @@ class TrendingData:
 
 def test_trending():
     """
-    Quick trending test for claims with different support patterns
+    Quick trending test for claims with different support patterns.
+    Actually use the run() function.
     """
-    data = TrendingData()
-    data.initialised = True
+
+    # Create a fake "claims.db" for testing
+    import apsw
+    dbc = apsw.Connection(":memory:")
+    db = dbc.cursor()
+
+    # Create table
+    db.execute("""
+        BEGIN;
+        CREATE TABLE claim (claim_hash     TEXT PRIMARY KEY,
+                            amount         REAL NOT NULL DEFAULT 0.0,
+                            support_amount REAL NOT NULL DEFAULT 0.0,
+                            trending_mixed REAL NOT NULL DEFAULT 0.0);
+        COMMIT;
+        """)
+
+    # Insert initial states of claims
+    everything = {"huge_whale": 0.01,
+                  "huge_whale_botted": 0.01,
+                  "medium_whale": 0.01,
+                  "small_whale": 0.01,
+                  "minnow": 0.01}
+
+    def to_list_of_tuples(stuff):
+        l = []
+        for key in stuff:
+            l.append((key, stuff[key]))
+        return l
+
+    db.executemany("""
+        INSERT INTO claim (claim_hash, amount) VALUES (?, 1E8*?);
+        """, to_list_of_tuples(everything))
 
     height = 0
-    data.update_claim(height, "huge_whale_one_support", 0.01)
-    data.update_claim(height, "huge_whale_botted", 0.01)
-    data.update_claim(height, "medium_whale_one_support", 0.01)
-    data.update_claim(height, "minnow", 0.01)
-    data.update_claim(height, "dolphin", 0.01)
-    data.update_claim(height, "medium_whale_one_support",
-                      data.claims["medium_whale_one_support"]["total_amount"] + 5E4)
-    data.update_claim(height, "huge_whale_one_support",
-                      data.claims["huge_whale_one_support"]["total_amount"] + 5E5)
-    data.update_claim(height, "dolphin",
-                      data.claims["dolphin"]["total_amount"] + 1E3)
-#    data.update_claim(height, "random_claim", 10.0**random.gauss(2.0, 2.0))
-    data.apply_spikes(height)
+    run(db, height, height, everything.keys())
 
-    # Save trajectories
+    # Save trajectories for plotting
     trajectories = {}
-    for key in data.claims:
-        trajectories[key] = [data.claims[key]["trending_score"]]
+    for key in trending_data.claims:
+        trajectories[key] = [trending_data.claims[key]["trending_score"]]
 
+    # Main loop
     for height in range(1, 1000):
 
-        if height % RENORM_INTERVAL == 0:
-            for key in data.claims:
-                data.claims[key]["trending_score"] *= DECAY_PER_RENORM
+        # One-off supports
+        if height == 1:
+            everything["huge_whale"] += 5E5
+            everything["medium_whale"] += 5E4
+            everything["small_whale"] += 5E3
 
-#        # The random claim
-#        if random.uniform(0.0, 1.0) <= 0.003:
-#            data.update_claim(height, "random_claim", 10.0**random.gauss(2.0, 2.0))
+        # Every block
+        if height < 500:
+            everything["huge_whale_botted"] += 5E5/500
+            everything["minnow"] += 1
 
-        # Add new supports
-        if height <= 500:
-            data.update_claim(height, "huge_whale_botted",
-                              data.claims["huge_whale_botted"]["total_amount"] + 5E5/500)
-            data.update_claim(height, "minnow",
-                              data.claims["minnow"]["total_amount"] + 1.0)
-
-        # Abandon all supports
+        # Remove supports
         if height == 500:
-            for key in data.claims:
-                data.update_claim(height, key, 0.01)
+            for key in everything:
+                everything[key] = 0.01
 
-        # Apply spikes
-        data.apply_spikes(height)
+        # Whack into the db
+        db.executemany("""
+            UPDATE claim SET amount = 1E8*? WHERE claim_hash = ?;
+            """, [(y, x) for (x, y) in to_list_of_tuples(everything)])
 
-        # Update whale list and process whale penalties
-        data.whales = set([])
-        for key in data.claims:
-            if data.claims[key]["trending_score"]/get_time_boost(height) >= WHALE_THRESHOLD:
-                data.add_whale(key)
-        data.process_whales(height)
+        # Call run()
+        run(db, height, height, everything.keys())
 
-        for key in data.claims:
-            trajectories[key].append(data.claims[key]["trending_score"]/get_time_boost(height))
+        for key in trending_data.claims:
+            trajectories[key].append(trending_data.claims[key]["trending_score"]/get_time_boost(height))
+
+    dbc.close()
 
     import matplotlib.pyplot as plt
-    import numpy as np
-    for key in data.claims:
+#    import numpy as np
+    for key in trending_data.claims:
         plt.plot(trajectories[key], label=key)
     plt.legend()
 
 #    import numpy as np
-#    plt.plot(np.array(trajectories["dolphin"])/np.array(trajectories["huge_whale_one_support"]))
+#    plt.plot(np.array(trajectories["small_whale"])/np.array(trajectories["huge_whale_one_support"]))
 ##    plt.ylim([0, 5])
     plt.show()
 
