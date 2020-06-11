@@ -235,9 +235,6 @@ class TrendingDB:
             self.execute("""UPDATE claims SET trending_score = ?*trending_score
                             WHERE trending_score != 0.0;""",
                          (DECAY_PER_RENORM, ))
-            self.execute("""
-                 UPDATE claims SET trending_score = 0.0 WHERE ABS(trending_score) < 1E-3;
-                 """)
 
     def write_to_claims_db(self, db, height):
         """
@@ -246,14 +243,12 @@ class TrendingDB:
         if height % SAVE_INTERVAL != 0:
             return
 
-        write_needed = [ x[0] for x in self.write_needed ]
-#        print(write_needed)
         rows = self.execute(f"""
                                 SELECT trending_score, claim_hash
                                 FROM claims
                                 WHERE claim_hash IN
-                                ({','.join('?' for _ in write_needed)});
-                                """, write_needed).fetchall()
+                                ({','.join('?' for _ in self.write_needed)});
+                                """, self.write_needed).fetchall()
 
         db.executemany("""UPDATE claim SET trending_mixed = ?
                          WHERE claim_hash = ?;""", rows);
