@@ -227,14 +227,15 @@ class TrendingDB:
         """
 
         if height % RENORM_INTERVAL == 0:
-            for ch in self.execute("""SELECT claim_hash FROM claims
+            threshold = 1.0E-3/DECAY_PER_RENORM
+            for row in self.execute("""SELECT claim_hash FROM claims
                                    WHERE ABS(trending_score) >= ?;""",
-                                   (1E-3/DECAY_PER_RENORM, )):
-                self.write_needed.add(ch)
+                                   (threshold, )):
+                self.write_needed.add(row[0])
 
             self.execute("""UPDATE claims SET trending_score = ?*trending_score
-                            WHERE trending_score != 0.0;""",
-                         (DECAY_PER_RENORM, ))
+                            WHERE ABS(trending_score) >= ?;""",
+                         (DECAY_PER_RENORM, threshold))
 
     def write_to_claims_db(self, db, height):
         """
@@ -380,7 +381,7 @@ def run(db, height, final_height, recalculate_claim_hashes):
     trending_log(f"Calculating variable_decay trending at block {height}.\n")
     trending_data.update(db, height, recalculate_claim_hashes)
     end = time.time()
-    trending_log(f"Trending operations took {end - start} seconds.\n")
+    trending_log(f"Trending operations took {end - start} seconds.\n\n")
 
 def test_trending():
     """
