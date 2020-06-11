@@ -12,7 +12,7 @@ import time
 HALF_LIFE = 200
 
 # Whale threshold, in LBC (higher -> less DB writing)
-WHALE_THRESHOLD = 1000.0
+WHALE_THRESHOLD = 10000.0
 
 # Decay coefficient per block
 DECAY = 0.5**(1.0/HALF_LIFE)
@@ -116,6 +116,8 @@ class TrendingDB:
         """
         Pass in claims.db
         """
+        if self.initialised:
+            return
 
         trending_log("Initialising trending database...")
 
@@ -372,7 +374,6 @@ def spike_mass(x, x_old):
 
 
 def run(db, height, final_height, recalculate_claim_hashes):
-
     if height < final_height - 5*HALF_LIFE:
         trending_log(f"Skipping trending calculations at block {height}.\n")
         return
