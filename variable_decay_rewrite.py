@@ -319,11 +319,10 @@ class TrendingDB:
                     spike_id, mass = spike[0], spike[3]
 
                     if mass > penalty:
-
                         # The entire penalty merely reduces this spike
-                        penalty = 0.0
                         self.execute("UPDATE spikes SET mass=? WHERE id=?;",
                                      (mass - penalty, spike_id))
+                        penalty = 0.0
                     else:
                         # Removing this spike entirely accounts for some (or
                         # all) of the penalty, then move on to other spikes
