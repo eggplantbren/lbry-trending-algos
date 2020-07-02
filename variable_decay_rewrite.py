@@ -86,6 +86,8 @@ def trending_unit(height):
     """
     Return the trending score unit at a given height.
     """
+    # Round to the beginning of a SAVE_INTERVAL batch of blocks.
+    _height = height - (height % SAVE_INTERVAL)
     return 1.0/DECAY**(height % RENORM_INTERVAL)
 
 
