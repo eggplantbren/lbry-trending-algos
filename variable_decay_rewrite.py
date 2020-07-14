@@ -54,7 +54,7 @@ def check_trending_values(connection):
     """
     c = connection.cursor()
     needs_reset = False
-    for row in c.execute("SELECT COUNT(*) num FROM claim WHERE trending_global <> 0;"):
+    for row in c.execute("SELECT COUNT(*) num FROM claim WHERE trending_group <> 0;"):
         if row[0] != 0:
             needs_reset = True
             break
@@ -63,8 +63,7 @@ def check_trending_values(connection):
         print("Resetting some columns. This might take a while...", flush=True,
               end="")
         c.execute(""" BEGIN;
-                      UPDATE claim SET trending_group = 0;
-                      UPDATE claim SET trending_mixed = 0;
+                      UPDATE claim SET trending_group = 0, trending_mixed = 0;
                       COMMIT;""")
         print("done.")
 
@@ -202,8 +201,9 @@ class TrendingDB:
         whales = self.execute("""
                               SELECT trending_score, lbc, claim_hash
                               FROM claims
-                              WHERE lbc >= ?;
-                              """, (WHALE_THRESHOLD, )).fetchall()
+                              WHERE lbc >= ? AND trending_score >= ?;
+                              """, (WHALE_THRESHOLD,
+                                    1.0*unit)).fetchall()
         whales2 = []
         for whale in whales:
             tr, lbc, ch = whale
@@ -225,17 +225,29 @@ class TrendingDB:
                          whales2)
 
 
-    def renorm(self, height):
+    def renorm(self, db, height):
         """
         Renormalise trending scores. Occurs inside a transaction.
         """
 
         if height % RENORM_INTERVAL == 0:
-            threshold = 1.0E-3/DECAY_PER_RENORM
-            for row in self.execute("""SELECT claim_hash FROM claims
-                                   WHERE ABS(trending_score) >= ?;""",
-                                   (threshold, )):
-                self.write_needed.add(row[0])
+
+            # Below this threshold, set trending scores to zero
+            # in both the in-memory database and claims.db
+            threshold = 1.0E-3*trending_unit(height)
+
+            self.execute("UPDATE claims SET trending_score = 0.0\
+                            WHERE ABS(trending_score) < ?;", (threshold, ))
+
+            db.execute("UPDATE claim\
+                        SET trending_group=0, trending_mixed=0.0\
+                        WHERE (trending_group, ABS(trending_mixed)) < (0, ?);",
+                        (threshold, ))
+
+            db.execute("UPDATE claim\
+                        SET trending_group=0, trending_mixed=?*trending_mixed\
+                        WHERE (trending_group, trending_mixed) < (0, ?);",
+                        (DECAY_PER_RENORM, threshold))
 
             self.execute("""UPDATE claims SET trending_score = ?*trending_score
                             WHERE ABS(trending_score) >= ?;""",
@@ -271,7 +283,7 @@ class TrendingDB:
         assert self.initialised
 
         self.begin()
-        self.renorm(height)
+        self.renorm(db, height)
 
         # Fetch changed/new claims from claims.db
         for row in db.execute(f"""
@@ -402,7 +414,9 @@ def test_trending():
         CREATE TABLE claim (claim_hash     TEXT PRIMARY KEY,
                             amount         REAL NOT NULL DEFAULT 0.0,
                             support_amount REAL NOT NULL DEFAULT 0.0,
+                            trending_group INTEGER NOT NULL DEFAULT 0,
                             trending_mixed REAL NOT NULL DEFAULT 0.0);
+        CREATE INDEX idx ON claim (trending_group, trending_mixed);
         COMMIT;
         """)
 
